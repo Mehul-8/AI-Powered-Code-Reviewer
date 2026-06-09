@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Code Reviewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #141414;
+      --border: #242424;
+      --accent: #c8f135;
+      --accent-dim: #9ab82a;
+      --text: #e8e8e8;
+      --muted: #555;
+      --error: #ff5a5a;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 28px 40px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    header span {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      min-height: calc(100vh - 73px);
+    }
+
+    .panel:last-child { border-right: none; }
+
+    .panel-header {
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+    }
+
+    .panel-header label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    select:focus { border-color: var(--accent); }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      padding: 24px 28px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.75;
+      color: var(--text);
+      tab-size: 2;
+    }
+
+    textarea::placeholder { color: var(--muted); }
+
+    .panel-footer {
+      padding: 18px 28px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    button#reviewBtn {
+      background: var(--accent);
+      color: #0d0d0d;
+      border: none;
+      font-family: var(--sans);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 10px 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button#reviewBtn:hover { background: var(--accent-dim); }
+    button#reviewBtn:active { transform: scale(0.97); }
+    button#reviewBtn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+
+    #charCount {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .output-panel { display: flex; flex-direction: column; }
+
+    #output {
+      flex: 1;
+      padding: 24px 28px;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-y: auto;
+      color: var(--text);
+    }
+
+    #output.placeholder-text { color: var(--muted); font-style: italic; }
+
+    #output .section-title {
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.76rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: block;
+      margin: 18px 0 8px;
+    }
+
+    #output .section-title:first-child { margin-top: 0; }
+
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner.active { display: block; }
+
+    #errorMsg {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--error);
+      display: none;
+      padding: 0 28px 16px;
+    }
+
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; }
+      .panel { border-right: none; border-bottom: 1px solid var(--border); min-height: 50vh; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Code Reviewer</h1>
+
+</header>
+
+<main>
+  <div class="panel">
+    <div class="panel-header">
+      <label>Input</label>
+      <select id="language">
+        <option value="python">Python</option>
+        <option value="javascript">JavaScript</option>
+        <option value="java">Java</option>
+        <option value="c">C</option>
+        <option value="cpp">C++</option>
+        <option value="typescript">TypeScript</option>
+        <option value="go">Go</option>
+        <option value="rust">Rust</option>
+        <option value="sql">SQL</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+
+    <textarea id="codeInput" placeholder="Paste your code here..."></textarea>
+
+    <div class="panel-footer">
+      <button id="reviewBtn" onclick="reviewCode()">Run Review</button>
+      <div class="spinner" id="spinner"></div>
+      <span id="charCount">0 chars</span>
+    </div>
+  </div>
+
+  <div class="panel output-panel">
+    <div class="panel-header">
+      <label>Review Output</label>
+    </div>
+
+    <div id="output" class="placeholder-text">Output will appear here after review...</div>
+    <div id="errorMsg"></div>
+  </div>
+</main>
+
+<script>
+  const codeInput = document.getElementById('codeInput');
+  const output = document.getElementById('output');
+  const spinner = document.getElementById('spinner');
+  const reviewBtn = document.getElementById('reviewBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  const charCount = document.getElementById('charCount');
+
+  codeInput.addEventListener('input', () => {
+    charCount.textContent = codeInput.value.length + ' chars';
+  });
+
+  function setLoading(state) {
+    reviewBtn.disabled = state;
+    spinner.classList.toggle('active', state);
+    reviewBtn.textContent = state ? 'Reviewing...' : 'Run Review';
+  }
+
+  function renderOutput(text) {
+    output.classList.remove('placeholder-text');
+    output.innerHTML = '';
+
+    const sectionKeys = ['BUGS', 'WARNINGS', 'IMPROVEMENTS', 'BEST PRACTICES', 'TIME COMPLEXITY', 'SPACE COMPLEXITY', 'SUMMARY'];
+
+    const lines = text.split('\n');
+    lines.forEach(line => {
+      const trimmed = line.trim().toUpperCase();
+      const isHeading = sectionKeys.some(k => trimmed === k || trimmed.startsWith(k + ':'));
+
+      if (isHeading) {
+        const span = document.createElement('span');
+        span.className = 'section-title';
+        span.textContent = line.trim();
+        output.appendChild(span);
+      } else {
+        output.appendChild(document.createTextNode(line + '\n'));
+      }
+    });
+  }
+
+  async function reviewCode() {
+    const code = codeInput.value.trim();
+    const language = document.getElementById('language').value;
+
+    if (!code) {
+      errorMsg.textContent = 'No code provided.';
+      errorMsg.style.display = 'block';
+      return;
+    }
+
+    errorMsg.style.display = 'none';
+    setLoading(true);
+    output.classList.add('placeholder-text');
+    output.textContent = 'Analyzing...';
+
+    try {
+      const res = await fetch('/api/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Server error');
+
+      renderOutput(data.review);
+    } catch (err) {
+      output.classList.add('placeholder-text');
+      output.textContent = 'Output will appear here after review...';
+      errorMsg.textContent = 'Error: ' + err.message;
+      errorMsg.style.display = 'block';
+    } finally {
+      setLoading(false);
+    }
+  }
+</script>
+
+</body>
+</html>
